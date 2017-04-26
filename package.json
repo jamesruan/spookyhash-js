@@ -1,0 +1,36 @@
+{
+  "name": "spookyhash",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jamesruan/spookyhash-js.git"
+  },
+  "keywords": [
+    "hash",
+    "spooky"
+  ],
+  "author": "James Ruan <ruanbeihong@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jamesruan/spookyhash-js/issues"
+  },
+  "homepage": "https://github.com/jamesruan/spookyhash-js#readme",
+  "dependencies": {
+    "long": "^3.2.0"
+  },
+  "jshintConfig":{
+    "maxerr": 5,
+    "browser": true,
+    "node": true,
+    "strict": true,
+    "asi": true,
+    "eqnull": true,
+    "unused": "vars",
+    "undef": true
+  }
+}
