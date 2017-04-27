@@ -1,5 +1,10 @@
 'use strict'
+
 var Long = require('long')
+var sc_const = new Long(0xdeadbeef, 0xdeadbeef, true)
+var sc_numVars = 12
+var sc_blockSize = sc_numVars * 8
+var sc_bufSize = sc_blockSize * 2
 
 var rot64 = function(x, n) {
 	return x.shl(n).or(x.shru(64 - n))
@@ -110,11 +115,79 @@ var short_end = function(h) {
 	short_end_stage(h, 2, 63)
 }
 
-module.exports = {
-	mix: mix,
-	end_partial: end_partial,
-	end: end,
-	short_mix: short_mix,
-	short_end: short_end,
-	sc_const: new Long(0xdeadbeef, 0xdeadbeef, true)
+var short_hash = function(msg, seed1, seed2) {
+	if (seed1 == null) {
+		seed1 = Long.new(0, 0, true)
+	} else {
+		console.assert(Long.isLong(seed1), 'seed1 need to be Long')
+	}
+	if (seed2 == null) {
+		seed2 = Long.new(0, 0, true)
+	} else {
+		console.assert(Long.isLong(seed1), 'seed1 need to be Long')
+	}
+	console.assert(Buffer.isBuffer(msg), 'msg need to be a Buffer')
+	var remainder = msg.length % 32
+	var a = seed1
+	var b = seed2
+	var c = sc_const
+	var d = sc_const
+
+	//setup a buffer
+	var buf = Buffer.alloc(sc_bufSize)
+	var offset = 0
+	var loop_max = msg.length >> 5 << 2
+
+	if (msg.length > 15) {
+		var low, high
+		// read 4 * 64bit = 32byte and mix
+		// until less than 32byte left
+		for (var i = 0; i < loop_max; i++) {
+			low = msg.readUIntLE(offset, 4)
+			offset += 4
+			high = msg.readUIntLE(offset, 4)
+			offset += 4
+			c = c.add(Long.new(low, high))
+
+			low = msg.readUIntLE(offset, 4)
+			offset += 4
+			high = msg.readUIntLE(offset, 4)
+			offset += 4
+			d = d.add(Long.new(low, high))
+
+			short_mix([a,b,c,d])
+
+			low = msg.readUIntLE(offset, 4)
+			offset += 4
+			high = msg.readUIntLE(offset, 4)
+			offset += 4
+			a = c.add(Long.new(low, high))
+
+			low = msg.readUIntLE(offset, 4)
+			offset += 4
+			high = msg.readUIntLE(offset, 4)
+			offset += 4
+			b = c.add(Long.new(low, high))
+		}
+
+		// if remaining is 16 bytes or more
+		if (remainder > 15) {
+			low = msg.readUIntLE(offset, 4)
+			offset += 4
+			high = msg.readUIntLE(offset, 4)
+			offset += 4
+			c = c.add(Long.new(low, high))
+
+			low = msg.readUIntLE(offset, 4)
+			offset += 4
+			high = msg.readUIntLE(offset, 4)
+			offset += 4
+			d = d.add(Long.new(low, high))
+
+			short_mix([a,b,c,d])
+
+			remainder -= 16
+		}
+		//TODO
+	}
 }
