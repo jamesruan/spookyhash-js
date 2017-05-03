@@ -133,13 +133,11 @@ var short_hash = function(msg, seed1, seed2) {
 	var c = sc_const
 	var d = sc_const
 
-	//setup a buffer
-	var buf = Buffer.alloc(sc_bufSize)
 	var offset = 0
-	var loop_max = msg.length >> 5 << 2
+	var low, high
 
 	if (msg.length > 15) {
-		var low, high
+		var loop_max = msg.length >> 5 << 2
 		// read 4 * 64bit = 32byte and mix
 		// until less than 32byte left
 		for (var i = 0; i < loop_max; i++) {
@@ -188,6 +186,165 @@ var short_hash = function(msg, seed1, seed2) {
 
 			remainder -= 16
 		}
-		//TODO
 	}
+
+	// remainder is less than 16
+	// handle length
+	high = msg.length << 24
+	low = 0
+	d = d.add(Long.new(low, high))
+	high = 0
+	// handle remaining
+	switch(remainder) {
+		case 15:
+			offset = 14
+			high = (msg.readUIntLE(offset, 1) << 16)
+			d = d.add(Long.new(low, high))
+			/* falls through */
+		case 14:
+			offset = 13
+			high = (msg.readUIntLE(offset, 1) << 8)
+			d = d.add(Long.new(low, high))
+			/* falls through */
+		case 13:
+			offset = 12
+			high = msg.readUIntLE(offset, 1)
+			d = d.add(Long.new(low, high))
+			/* falls through */
+		case 12:
+			offset = 8
+			high = msg.readUIntLE(offset, 4)
+			d = d.add(Long.new(low, high))
+			low = msg.readUIntLE(0, 4)
+			high = msg.readUIntLE(4, 4)
+			c = c.add(Long.new(low, high))
+			break;
+		case 11:
+			offset = 10
+			low = (msg.readUIntLE(offset, 1) << 16)
+			d = d.add(Long.new(low, high))
+			/* falls through */
+		case 10:
+			offset = 9
+			high = (msg.readUIntLE(offset, 1) << 8)
+			d = d.add(Long.new(low, high))
+			/* falls through */
+		case 9:
+			offset = 8
+			low = msg.readUIntLE(offset, 1) << 8
+			d = d.add(Long.new(low, high))
+			/* falls through */
+		case 8:
+			low = msg.readUIntLE(0, 4)
+			high = msg.readUIntLE(4, 4)
+			c = c.add(Long.new(low, high))
+			break;
+		case 7:
+			offset = 6
+			high = (msg.readUIntLE(offset, 1) << 16)
+			c = c.add(Long.new(low, high))
+			/* falls through */
+		case 6:
+			offset = 5
+			high = (msg.readUIntLE(offset, 1) << 8)
+			c = c.add(Long.new(low, high))
+			/* falls through */
+		case 5:
+			offset = 4
+			high = msg.readUIntLE(offset, 1)
+			c = c.add(Long.new(low, high))
+			/* falls through */
+		case 4:
+			low = msg.readUIntLE(0, 4)
+			c = c.add(Long.new(low, high))
+			break;
+		case 3:
+			offset = 2
+			low = (msg.readUIntLE(offset, 1) << 16)
+			c = c.add(Long.new(low, high))
+			/* falls through */
+		case 2:
+			offset = 1
+			low = (msg.readUIntLE(offset, 1) << 8)
+			c = c.add(Long.new(low, high))
+			/* falls through */
+		case 1:
+			offset = 0
+			low = msg.readUIntLE(offset, 1)
+			c = c.add(Long.new(low, high))
+			break;
+		case 0:
+			c = c.add(sc_const)
+			d = d.add(sc_const)
+			break;
+	}
+	short_end([a,b,c,d])
+
+	var hash = Buffer.alloc(8)
+	hash.WriteUInt32LE(a.low, 0)
+	hash.WriteUInt32LE(a.high, 2)
+	hash.WriteUInt32LE(b.low, 4)
+	hash.WriteUInt32LE(b.high, 8)
+	return hash
+}
+
+var hash128 = function(msg, seed1, seed2) {
+	if (seed1 == null) {
+		seed1 = Long.new(0, 0, true)
+	} else {
+		console.assert(Long.isLong(seed1), 'seed1 need to be Long')
+	}
+	if (seed2 == null) {
+		seed2 = Long.new(0, 0, true)
+	} else {
+		console.assert(Long.isLong(seed1), 'seed1 need to be Long')
+	}
+	if (msg.length < sc_bufSize) {
+		return short_hash(msg, seed1, seed2)
+	}
+
+	var buf = []
+	buf[0] = buf[3] = buf[6] = buf[9] = seed1
+	buf[1] = buf[4] = buf[7] = buf[10] = seed2
+	buf[2] = buf[5] = buf[8] = buf[11] = sc_const
+	var data = []
+
+	var loop_max = (msg.length / sc_blockSize | 0)
+	var remainder = msg.length - loop_max * sc_numVars
+	var offset = 0
+	var i
+	var piece
+	var low, high
+	while (offset / sc_blockSize < loop_max) {
+		// read 64*12 = 96 bytes once
+		piece = msg.slice(offset, offset + sc_blockSize)
+		for (i = 0; i < sc_numVars; i++) {
+			low = piece.readUIntLE(offset + i * 4, 4)
+			high = piece.readUIntLE(offset + (i + 1) * 4, 4)
+			data[i] = Long.new(low, high)
+		}
+		mix(data, buf)
+		offset += sc_blockSize
+	}
+	//handle remaining less than 96 bytes
+	piece = Buffer.alloc(sc_blockSize)
+	msg.copy(piece, 0, offset)
+	piece.WriteUInt8(remainder, sc_blockSize - 1)
+	for (i = 0; i < remainder; i++) {
+		low = piece.readUIntLE(offset + i * 4, 4)
+		high = piece.readUIntLE(offset + (i + 1) * 4, 4)
+		data[i] = Long.new(low, high)
+	}
+	end(data, buf)
+
+	var hash = Buffer.alloc(8)
+	hash.WriteUInt32LE(buf[0].low, 0)
+	hash.WriteUInt32LE(buf[0].high, 2)
+	hash.WriteUInt32LE(buf[1].low, 4)
+	hash.WriteUInt32LE(buf[1].high, 8)
+	return hash
+}
+
+module.export = {
+	hash128: hash128
 }
