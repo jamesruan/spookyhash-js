@@ -43,7 +43,7 @@ var end_partial_stage= function(h, i ,b) {
 	var im1 = (i+11) %12
 	h[im1] = h[im1].add(h[ip1])
 	h[ip2] = h[ip2].xor(h[im1])
-	h[ip1] = h[ip1].rot64(h[ip1], b)
+	h[ip1] = rot64(h[ip1], b)
 }
 
 var end_partial = function(h) {
@@ -97,7 +97,7 @@ var short_end_stage = function(h, i, b) {
 	var ip2 = (i+2)%4
 	var im1 = (i+3)%4
 	h[im1] = h[im1].xor(h[ip2])
-	h[ip2] = h[ip2].rot64(h[ip2], b)
+	h[ip2] = rot64(h[ip2], b)
 	h[im1] = h[im1].add(h[ip2])
 }
 
@@ -117,27 +117,24 @@ var short_end = function(h) {
 
 var short_hash = function(msg, seed1, seed2) {
 	if (seed1 == null) {
-		seed1 = Long.new(0, 0, true)
+		seed1 = new Long(0, 0, true)
 	} else {
 		console.assert(Long.isLong(seed1), 'seed1 need to be Long')
 	}
 	if (seed2 == null) {
-		seed2 = Long.new(0, 0, true)
+		seed2 = new Long(0, 0, true)
 	} else {
 		console.assert(Long.isLong(seed1), 'seed1 need to be Long')
 	}
 	console.assert(Buffer.isBuffer(msg), 'msg need to be a Buffer')
 	var remainder = msg.length % 32
-	var a = seed1
-	var b = seed2
-	var c = sc_const
-	var d = sc_const
+	var h =[seed1, seed2, sc_const, sc_const]
 
 	var offset = 0
 	var low, high
 
 	if (msg.length > 15) {
-		var loop_max = msg.length >> 5 << 2
+		var loop_max = msg.length >> 5
 		// read 4 * 64bit = 32byte and mix
 		// until less than 32byte left
 		for (var i = 0; i < loop_max; i++) {
@@ -145,27 +142,27 @@ var short_hash = function(msg, seed1, seed2) {
 			offset += 4
 			high = msg.readUIntLE(offset, 4)
 			offset += 4
-			c = c.add(Long.new(low, high))
+			h[2] = h[2].add(new Long(low, high))
 
 			low = msg.readUIntLE(offset, 4)
 			offset += 4
 			high = msg.readUIntLE(offset, 4)
 			offset += 4
-			d = d.add(Long.new(low, high))
+			h[3] = h[3].add(new Long(low, high))
 
-			short_mix([a,b,c,d])
-
-			low = msg.readUIntLE(offset, 4)
-			offset += 4
-			high = msg.readUIntLE(offset, 4)
-			offset += 4
-			a = c.add(Long.new(low, high))
+			short_mix(h)
 
 			low = msg.readUIntLE(offset, 4)
 			offset += 4
 			high = msg.readUIntLE(offset, 4)
 			offset += 4
-			b = c.add(Long.new(low, high))
+			h[0] = h[0].add(new Long(low, high))
+
+			low = msg.readUIntLE(offset, 4)
+			offset += 4
+			high = msg.readUIntLE(offset, 4)
+			offset += 4
+			h[1] = h[1].add(new Long(low, high))
 		}
 
 		// if remaining is 16 bytes or more
@@ -174,128 +171,127 @@ var short_hash = function(msg, seed1, seed2) {
 			offset += 4
 			high = msg.readUIntLE(offset, 4)
 			offset += 4
-			c = c.add(Long.new(low, high))
+			h[2] = h[2].add(new Long(low, high))
 
 			low = msg.readUIntLE(offset, 4)
 			offset += 4
 			high = msg.readUIntLE(offset, 4)
 			offset += 4
-			d = d.add(Long.new(low, high))
+			h[3] = h[3].add(new Long(low, high))
 
-			short_mix([a,b,c,d])
+			short_mix(h)
 
 			remainder -= 16
 		}
 	}
 
+
+	var base = msg.length - remainder
 	// remainder is less than 16
 	// handle length
 	high = msg.length << 24
 	low = 0
-	d = d.add(Long.new(low, high))
+	h[3] = h[3].add(new Long(low, high))
 	high = 0
 	// handle remaining
 	switch(remainder) {
 		case 15:
-			offset = 14
+			offset = base + 14
 			high = (msg.readUIntLE(offset, 1) << 16)
-			d = d.add(Long.new(low, high))
+			h[3] = h[3].add(new Long(0, high))
 			/* falls through */
 		case 14:
-			offset = 13
+			offset = base + 13
 			high = (msg.readUIntLE(offset, 1) << 8)
-			d = d.add(Long.new(low, high))
+			h[3] = h[3].add(new Long(0, high))
 			/* falls through */
 		case 13:
-			offset = 12
+			offset = base + 12
 			high = msg.readUIntLE(offset, 1)
-			d = d.add(Long.new(low, high))
+			h[3] = h[3].add(new Long(0, high))
 			/* falls through */
 		case 12:
-			offset = 8
-			high = msg.readUIntLE(offset, 4)
-			d = d.add(Long.new(low, high))
-			low = msg.readUIntLE(0, 4)
-			high = msg.readUIntLE(4, 4)
-			c = c.add(Long.new(low, high))
+			offset = base + 8
+			low = msg.readUIntLE(offset, 4)
+			h[3] = h[3].add(new Long(low, 0))
+			low = msg.readUIntLE(base + 0, 4)
+			high = msg.readUIntLE(base + 4, 4)
+			h[2] = h[2].add(new Long(low, high))
 			break;
 		case 11:
-			offset = 10
+			offset = base + 10
 			low = (msg.readUIntLE(offset, 1) << 16)
-			d = d.add(Long.new(low, high))
+			h[3] = h[3].add(new Long(low, 0))
 			/* falls through */
 		case 10:
-			offset = 9
-			high = (msg.readUIntLE(offset, 1) << 8)
-			d = d.add(Long.new(low, high))
+			offset = base + 9
+			low = (msg.readUIntLE(offset, 1) << 8)
+			h[3] = h[3].add(new Long(low, 0))
 			/* falls through */
 		case 9:
-			offset = 8
-			low = msg.readUIntLE(offset, 1) << 8
-			d = d.add(Long.new(low, high))
+			offset = base + 8
+			low = msg.readUIntLE(offset, 1)
+			h[3] = h[3].add(new Long(low, 0))
 			/* falls through */
 		case 8:
-			low = msg.readUIntLE(0, 4)
-			high = msg.readUIntLE(4, 4)
-			c = c.add(Long.new(low, high))
+			low = msg.readUIntLE(base + 0, 4)
+			high = msg.readUIntLE(base + 4, 4)
+			h[2] = h[2].add(new Long(low, high))
 			break;
 		case 7:
-			offset = 6
+			offset = base + 6
 			high = (msg.readUIntLE(offset, 1) << 16)
-			c = c.add(Long.new(low, high))
+			h[2] = h[2].add(new Long(0, high))
 			/* falls through */
 		case 6:
-			offset = 5
+			offset = base + 5
 			high = (msg.readUIntLE(offset, 1) << 8)
-			c = c.add(Long.new(low, high))
+			h[2] = h[2].add(new Long(0, high))
 			/* falls through */
 		case 5:
-			offset = 4
+			offset = base + 4
 			high = msg.readUIntLE(offset, 1)
-			c = c.add(Long.new(low, high))
+			h[2] = h[2].add(new Long(0, high))
 			/* falls through */
 		case 4:
-			low = msg.readUIntLE(0, 4)
-			c = c.add(Long.new(low, high))
+			low = msg.readUIntLE(base + 0, 4)
+			h[2] = h[2].add(new Long(low, 0))
 			break;
 		case 3:
-			offset = 2
+			offset = base + 2
 			low = (msg.readUIntLE(offset, 1) << 16)
-			c = c.add(Long.new(low, high))
+			h[2] = h[2].add(new Long(low, 0))
 			/* falls through */
 		case 2:
-			offset = 1
+			offset = base + 1
 			low = (msg.readUIntLE(offset, 1) << 8)
-			c = c.add(Long.new(low, high))
+			h[2] = h[2].add(new Long(low, 0))
 			/* falls through */
 		case 1:
-			offset = 0
+			offset = base + 0
 			low = msg.readUIntLE(offset, 1)
-			c = c.add(Long.new(low, high))
+			h[2] = h[2].add(new Long(low, 0))
 			break;
 		case 0:
-			c = c.add(sc_const)
-			d = d.add(sc_const)
+			h[2] = h[2].add(sc_const)
+			h[3] = h[3].add(sc_const)
 			break;
 	}
-	short_end([a,b,c,d])
+	short_end(h)
 
-	var hash = Buffer.alloc(8)
-	hash.WriteUInt32LE(a.low, 0)
-	hash.WriteUInt32LE(a.high, 2)
-	hash.WriteUInt32LE(b.low, 4)
-	hash.WriteUInt32LE(b.high, 8)
-	return hash
+	var lowbuf = Buffer.from(h[0].toString(16))
+	var highbuf = Buffer.from(h[1].toString(16))
+	return Buffer.concat([lowbuf, highbuf])
 }
 
 var hash128 = function(msg, seed1, seed2) {
 	if (seed1 == null) {
-		seed1 = Long.new(0, 0, true)
+		seed1 = new Long(0, 0, true)
 	} else {
 		console.assert(Long.isLong(seed1), 'seed1 need to be Long')
 	}
 	if (seed2 == null) {
-		seed2 = Long.new(0, 0, true)
+		seed2 = new Long(0, 0, true)
 	} else {
 		console.assert(Long.isLong(seed1), 'seed1 need to be Long')
 	}
@@ -321,7 +317,7 @@ var hash128 = function(msg, seed1, seed2) {
 		for (i = 0; i < sc_numVars; i++) {
 			low = piece.readUIntLE(offset + i * 4, 4)
 			high = piece.readUIntLE(offset + (i + 1) * 4, 4)
-			data[i] = Long.new(low, high)
+			data[i] = new Long(low, high)
 		}
 		mix(data, buf)
 		offset += sc_blockSize
@@ -333,7 +329,7 @@ var hash128 = function(msg, seed1, seed2) {
 	for (i = 0; i < remainder; i++) {
 		low = piece.readUIntLE(offset + i * 4, 4)
 		high = piece.readUIntLE(offset + (i + 1) * 4, 4)
-		data[i] = Long.new(low, high)
+		data[i] = new Long(low, high)
 	}
 	end(data, buf)
 
@@ -345,6 +341,6 @@ var hash128 = function(msg, seed1, seed2) {
 	return hash
 }
 
-module.export = {
+module.exports = {
 	hash128: hash128
 }
