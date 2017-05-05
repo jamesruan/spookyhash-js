@@ -15,7 +15,7 @@ var mix_stage = function(data, s, i, b) {
 	var ip2 = (i+2)%12
 	var im1 = (i+11) %12
 	var im2 = (i+10) %12
-	s[i] = data[i].add(s[i])
+	s[i] = s[i].add(data[i])
 	s[ip2] = s[ip2].xor(s[im2])
 	s[im1] = s[im1].xor(s[i])
 	s[i] = rot64(s[i], b)
@@ -315,8 +315,8 @@ var hash128 = function(msg, seed1, seed2) {
 		// read 64*12 = 96 bytes once
 		piece = msg.slice(offset, offset + sc_blockSize)
 		for (i = 0; i < sc_numVars; i++) {
-			low = piece.readUIntLE(i * 4, 4)
-			high = piece.readUIntLE((i + 1) * 4, 4)
+			low = piece.readUIntLE(i * 8, 4)
+			high = piece.readUIntLE(i * 8 + 4, 4)
 			data[i] = new Long(low, high)
 		}
 		mix(data, buf)
@@ -327,8 +327,8 @@ var hash128 = function(msg, seed1, seed2) {
 	msg.copy(piece, 0, offset)
 	piece.writeUInt8(remainder, sc_blockSize - 1)
 	for (i = 0; i < sc_numVars; i++) {
-		low = piece.readUIntLE(i * 4, 4)
-		high = piece.readUIntLE((i + 1) * 4, 4)
+		low = piece.readUIntLE(i * 8, 4)
+		high = piece.readUIntLE(i * 8 + 4, 4)
 		data[i] = new Long(low, high)
 	}
 	end(data, buf)
