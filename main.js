@@ -306,7 +306,7 @@ var hash128 = function(msg, seed1, seed2) {
 	var data = []
 
 	var loop_max = (msg.length / sc_blockSize | 0)
-	var remainder = msg.length - loop_max * sc_numVars
+	var remainder = msg.length - loop_max * sc_blockSize
 	var offset = 0
 	var i
 	var piece
@@ -315,8 +315,8 @@ var hash128 = function(msg, seed1, seed2) {
 		// read 64*12 = 96 bytes once
 		piece = msg.slice(offset, offset + sc_blockSize)
 		for (i = 0; i < sc_numVars; i++) {
-			low = piece.readUIntLE(offset + i * 4, 4)
-			high = piece.readUIntLE(offset + (i + 1) * 4, 4)
+			low = piece.readUIntLE(i * 4, 4)
+			high = piece.readUIntLE((i + 1) * 4, 4)
 			data[i] = new Long(low, high)
 		}
 		mix(data, buf)
@@ -325,20 +325,17 @@ var hash128 = function(msg, seed1, seed2) {
 	//handle remaining less than 96 bytes
 	piece = Buffer.alloc(sc_blockSize)
 	msg.copy(piece, 0, offset)
-	piece.WriteUInt8(remainder, sc_blockSize - 1)
-	for (i = 0; i < remainder; i++) {
-		low = piece.readUIntLE(offset + i * 4, 4)
-		high = piece.readUIntLE(offset + (i + 1) * 4, 4)
+	piece.writeUInt8(remainder, sc_blockSize - 1)
+	for (i = 0; i < sc_numVars; i++) {
+		low = piece.readUIntLE(i * 4, 4)
+		high = piece.readUIntLE((i + 1) * 4, 4)
 		data[i] = new Long(low, high)
 	}
 	end(data, buf)
 
-	var hash = Buffer.alloc(8)
-	hash.WriteUInt32LE(buf[0].low, 0)
-	hash.WriteUInt32LE(buf[0].high, 2)
-	hash.WriteUInt32LE(buf[1].low, 4)
-	hash.WriteUInt32LE(buf[1].high, 8)
-	return hash
+	var lowbuf = Buffer.from(buf[0].toString(16))
+	var highbuf = Buffer.from(buf[1].toString(16))
+	return Buffer.concat([lowbuf, highbuf])
 }
 
 module.exports = {

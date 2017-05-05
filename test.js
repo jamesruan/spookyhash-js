@@ -7,3 +7,9 @@ input = Buffer.from(str)
 console.log(Spooky)
 buffer = Spooky.hash128(input)
 console.log(buffer.toString())
+
+str = "The quick brown fox jumps over the lazy dog The quick brown fox jumps over the lazy dog The quick brown fox jumps over the lazy dog The quick brown fox jumps over the lazy dog The quick brown fox jumps over the lazy dog"
+input = Buffer.from(str)
+console.log(Spooky)
+buffer = Spooky.hash128(input)
+console.log(buffer.toString())
