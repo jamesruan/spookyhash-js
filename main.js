@@ -116,17 +116,6 @@ var short_end = function(h) {
 }
 
 var short_hash = function(msg, seed1, seed2) {
-	if (seed1 == null) {
-		seed1 = new Long(0, 0, true)
-	} else {
-		console.assert(Long.isLong(seed1), 'seed1 need to be Long')
-	}
-	if (seed2 == null) {
-		seed2 = new Long(0, 0, true)
-	} else {
-		console.assert(Long.isLong(seed1), 'seed1 need to be Long')
-	}
-	console.assert(Buffer.isBuffer(msg), 'msg need to be a Buffer')
 	var remainder = msg.length % 32
 	var h =[seed1, seed2, sc_const, sc_const]
 
@@ -295,6 +284,7 @@ var hash128 = function(msg, seed1, seed2) {
 	} else {
 		console.assert(Long.isLong(seed1), 'seed1 need to be Long')
 	}
+	console.assert(Buffer.isBuffer(msg), 'msg need to be a Buffer')
 	if (msg.length < sc_bufSize) {
 		return short_hash(msg, seed1, seed2)
 	}
@@ -338,6 +328,24 @@ var hash128 = function(msg, seed1, seed2) {
 	return Buffer.concat([lowbuf, highbuf])
 }
 
+var hash96 = function(msg, seed1, seed2) {
+	var buf = hash128(msg, seed1, seed2)
+	return Buffer.from(buf.slice(0, 12))
+}
+
+var hash64 = function(msg, seed1, seed2) {
+	var buf = hash128(msg, seed1, seed2)
+	return Buffer.from(buf.slice(0, 8))
+}
+
+var hash32 = function(msg, seed1, seed2) {
+	var buf = hash128(msg, seed1, seed2)
+	return Buffer.from(buf.slice(0, 4))
+}
+
 module.exports = {
-	hash128: hash128
+	hash128: hash128,
+	hash96: hash96,
+	hash64: hash64,
+	hash32: hash32
 }
