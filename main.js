@@ -268,9 +268,12 @@ var short_hash = function(msg, seed1, seed2) {
 	}
 	short_end(h)
 
-	var lowbuf = Buffer.from(h[0].toString(16))
-	var highbuf = Buffer.from(h[1].toString(16))
-	return Buffer.concat([lowbuf, highbuf])
+	var outbuf = Buffer.allocUnsafe(16)
+	outbuf.writeUInt32BE(h[0].getHighBitsUnsigned(), 0)
+	outbuf.writeUInt32BE(h[0].getLowBitsUnsigned(), 4)
+	outbuf.writeUInt32BE(h[1].getHighBitsUnsigned(), 8)
+	outbuf.writeUInt32BE(h[1].getLowBitsUnsigned(), 12)
+	return outbuf
 }
 
 var hash128 = function(msg, seed1, seed2) {
@@ -323,9 +326,12 @@ var hash128 = function(msg, seed1, seed2) {
 	}
 	end(data, buf)
 
-	var lowbuf = Buffer.from(buf[0].toString(16))
-	var highbuf = Buffer.from(buf[1].toString(16))
-	return Buffer.concat([lowbuf, highbuf])
+	var outbuf = Buffer.allocUnsafe(16)
+	outbuf.writeUInt32BE(buf[0].getHighBitsUnsigned(), 0)
+	outbuf.writeUInt32BE(buf[0].getLowBitsUnsigned(), 4)
+	outbuf.writeUInt32BE(buf[1].getHighBitsUnsigned(), 8)
+	outbuf.writeUInt32BE(buf[1].getLowBitsUnsigned(), 12)
+	return outbuf
 }
 
 var hash96 = function(msg, seed1, seed2) {
