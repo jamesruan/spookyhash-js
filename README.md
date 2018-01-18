@@ -13,6 +13,6 @@ Usage:
     const str = "some test string"
     const buf = Buffer.from(str)
     const hash = Spooky.hash128(buf)
-    console.log(hash.toString())
+    console.log(hash.toString('hex'))
     // 9503b082b3b227449e6cb7e7fbacb8c6
 
